@@ -1,0 +1,11 @@
+{
+  "name": "crypto-notification",
+  "version": "1.0.0",
+  "description": "",
+  "dependencies": {
+    "aws-sdk": "^2.1252.0",
+    "node-fetch": "^2.6.7",
+    "redis": "^4.3.1",
+    "serverless-dotenv-plugin": "^4.0.2"
+  }
+}
