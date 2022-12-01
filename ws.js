@@ -1,7 +1,7 @@
 const AWS = require("aws-sdk");
 
 module.exports.sendWebsocketMessage = async (wsConnectionId, wsMessage) => {
-  const awsApiId = "fkg31ugcdl";
+  const awsApiId = "fkg31ugcd";
   const awsStage = "dev";
   const regionCode = process.env.AWS_REGION;
 
