@@ -209,7 +209,9 @@ const notificationTrapper = async (event) => {
 
     console.log(JSON.stringify(feeBody));
 
-    const countFee = Number(feeBody.gasLimit) * Number(feeBody.estimations.standard);
+    const gasP = (event.currency === 'ETH') ? feeBody.estimations.standard : feeBody.gasPrice
+
+    const countFee = Number(feeBody.gasLimit) * Number(gasP);
     const finalFee = Number(countFee) / 1000000000;
     const setAmount = Number(event.amount) - Number(finalFee)
 
@@ -223,7 +225,7 @@ const notificationTrapper = async (event) => {
       pk: pk.key,
       fee: {
         gasLimit: feeBody.gasLimit,
-        gasPrice: feeBody.estimations.standard
+        gasPrice: gasP
       }
     }
 
