@@ -1,9 +1,9 @@
 const { Lambda } = require('aws-sdk');
 let lambda = new Lambda();
 
-const invoke = async ( payload ) => {
+const invoke = async (functionName, payload) => {
   console.log(payload);
-  const FunctionName = `midasWalletService2-dev-updateBalance`;
+  const FunctionName = functionName;
   console.log(`invoking function name: ${FunctionName}`);
   const params = {
     FunctionName,

@@ -3,7 +3,7 @@ const { DynamoDB } = require("aws-sdk");
 const { handleResponse } = require('./handleResponse');
 const { sendWebsocketMessage } = require('./ws');
 const { invoke } = require('./invoke');
-const { cryptoTransferVirutalAccountFunction } = require('./transfer');
+const { cryptoTransferFunction } = require('./transfer');
 const docClient = new DynamoDB.DocumentClient();
 
 const getUserById = async (props) => {
@@ -84,51 +84,31 @@ const updateCryptoBalance = async (brandUsername, currency, amount) => {
   }
 };
 
-// const cryptoSubscription = async (event) => {
-//   console.log(event);
-//   const a = Object.values(event.blockchainWallet);
-//   console.log(a);
-//   console.log('running...');
-//   try {
-//     const c = [];
-//     for ( let i = 0; i < a.length; i++ ) {
-//       const success = await fetch(
-//         `https://api.tatum.io/v3/subscription`,
-//         {
-//           method: 'POST',
-//           headers: {
-//             'Content-Type': 'application/json',
-//             'x-api-key': process.env.api_key
-//           },
-//           body: JSON.stringify({
-//             type: 'ADDRESS_TRANSACTION',
-//             attr: {
-//               address: a[i].address,
-//               chain: a[i].currency,
-//               url: process.env.webhook
-//             }
-//           })
-//         }
-//       );
-
-//       const dataIncoming = await success.json();
-//       console.log('dataIncoming: ', JSON.stringify(dataIncoming));
-//       c.push(dataIncoming.id);     
-//     }      
+const getPrivateKey = async (index) => {
+  try {
+    const success = await fetch(
+      `https://api.tatum.io/v3/ethereum/wallet/priv`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.api_key
+        },
+        body: JSON.stringify({
+            index: Number(index),
+            mnemonic: process.env.MNEMONIC
+        })
+      }
+    );
     
-//     const result = {
-//       event,
-//       incomingSubs: c,
-//     }
-
-//     console.log(result);
-
-//     handleResponse(result)
-//   } catch (error) {
-//     console.log(error);
-//     handleResponse(null, 500, error);
-//   }
-// };
+    const data = await success.json();      
+    
+    return data;
+  } catch (error) {
+    console.log(error);
+    handleResponse(null, 500, error);
+  }
+};
 
 // const cryptoManualSubscription = async (address, chain) => {
 //   console.log('masuk manual subs')
@@ -212,22 +192,57 @@ const notificationTrapper = async (event) => {
       a: event.currency, b: event.accountId, c: event.amount
     })
 
-    await cryptoTransferVirutalAccountFunction(event.currency, event.accountId, event.amount);
+    const payloadGetBlockchainFee = {
+      chain: event.currency,
+      toAddress: '0xB4A059Fb99CF16F5AB2A5aE20ca2Ed94C27DD0d4',
+      value: Number(event.amount),
+      brandUsername: brandUsernameData.Item.brandUsername
+    }
 
-    const payload = {
+    console.log('PAYLOAD BLOCKCHAIN FEE: ' + JSON.stringify(payloadGetBlockchainFee));
+
+    const blockchainFeeInvoke = await invoke('midas-player-backend-dev-getBlockchainFees', payloadGetBlockchainFee)
+
+    const feeParse = JSON.parse(blockchainFeeInvoke.Payload);
+
+    const feeBody = JSON.parse(feeParse.body)
+
+    console.log(JSON.stringify(feeBody));
+
+    const countFee = Number(feeBody.gasLimit) * Number(feeBody.estimations.standard);
+    const finalFee = Number(countFee) / 1000000000;
+    const setAmount = Number(event.amount) - Number(finalFee)
+
+    const pk = await getPrivateKey(brandUsernameData.Item.derivationKey);
+
+    console.log(`pk: ${JSON.stringify(pk)}`);
+
+    const transferData = {
+      chain: event.currency,
+      amount: setAmount.toString(),
+      pk: pk.key,
+      fee: {
+        gasLimit: feeBody.gasLimit,
+        gasPrice: feeBody.estimations.standard
+      }
+    }
+
+    await cryptoTransferFunction(transferData);    
+
+    const payloadUpdateBalance = {
       attribute1: 'transferIn',
       amount: Number(event.amount),
       chain: event.currency,
       brandUsername: brandUsernameData.Item.brandUsername
     }
 
-    console.log('PAYLOAD: ' + JSON.stringify(payload));
+    console.log('PAYLOAD UPDATE BALANCE: ' + JSON.stringify(payloadUpdateBalance));
 
-    const { Payload } = await invoke(payload);
+    const updateBalanceInvoke = await invoke('midasWalletService2-dev-updateBalance', payloadUpdateBalance);
 
-    const payloadParse = JSON.parse(Payload);
+    const updateBalanceParse = JSON.parse(updateBalanceInvoke.Payload);
 
-    const { newResult: c } = payloadParse;
+    const { newResult: c } = updateBalanceParse;
     console.log(c);
     console.log(JSON.stringify(c));
     console.log('yang dibutuhkan: ' + c.cryptoBalance[event.currency])
@@ -235,14 +250,51 @@ const notificationTrapper = async (event) => {
     await updateCryptoBalance(brandUsernameData.Item.brandUsername, event.currency, c.cryptoBalance[event.currency]);
 
     const wsMessage = {
-      MAIN: c.currentBalance, 
-      BONUS: c.bonusCurrentBalance,
-      BTC: c.cryptoBalance['BTC'],
-      ETH: c.cryptoBalance['ETH'],
-      DOGE: c.cryptoBalance['DOGE'],
-      BSC: c.cryptoBalance['BSC'],
-      SHIB: c.cryptoBalance['SHIB']
-    }
+      brandUsername: c.brandUsername,
+      activeWallet: c.activeWallet,
+      walletBalance: {
+        MAIN: {
+          currentBalance: c.currentBalance,
+          currencyName: 'MAIN',
+          type: 'FIAT'
+        },
+        BONUS: {
+          currentBalance: c.currentBalance,
+          currencyName: 'BONUS',
+          type: 'FIAT'              
+        },
+        BTC: {
+          currentBalance: c.cryptoBalance["BTC"],
+          currencyName: 'BTC',
+          type: 'CRYPTO'          
+        },
+        ETH: {
+          currentBalance: c.cryptoBalance["ETH"],
+          currencyName: 'ETH',
+          type: 'CRYPTO'              
+        },
+        DOGE: {
+          currentBalance: c.cryptoBalance["DOGE"],
+          currencyName: 'DOGE',
+          type: 'CRYPTO'
+        },
+        BSC: {
+          currentBalance: c.cryptoBalance["BSC"],
+          currencyName: 'BSC',
+          type: 'CRYPTO'
+        },
+        SHIB: {
+          currentBalance: c.cryptoBalance["SHIB"],
+            currencyName: 'SHIB',
+          type: 'CRYPTO'             
+        },
+        USDT: {
+          currentBalance: c.cryptoBalance["USDT"],
+          currencyName: 'USDT',
+          type: 'CRYPTO'             
+        },
+      }
+    };    
 
     console.log(wsMessage)
 

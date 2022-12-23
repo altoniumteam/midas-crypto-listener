@@ -6,17 +6,25 @@ plugins:
 
 useDotenv: true
 
+custom:
+  tatumSecret: ${ssm:/aws/reference/secretsmanager/tatumSecret}
+
 provider:
   name: aws
   runtime: nodejs14.x
   region: ap-southeast-1
   stage: dev
   environment:
-    webhook: ${env:webhook_url}
-    api_key: ${env:api_key}
+    api_key: ${self:custom.tatumSecret.tatumApiKey}
+    MNEMONIC: ${self:custom.tatumSecret.mnemonicETH}
   iam:
     role:
       statements:
+        - Effect: "Allow"
+          Action:
+            - "secretsmanager:GetSecretValue"
+          Resource:
+            - !Sub "arn:aws:secretsmanager:*:*:secret:*"      
         - Effect: Allow
           Action:
             - "execute-api:ManageConnections"

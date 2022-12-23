@@ -1,30 +1,20 @@
 const fetch = require('node-fetch');
 
-const cryptoTransferVirutalAccountFunction = async (currency, id, amount) => {
-    let recipientId;
-
-    if (currency == 'BTC') {
-        recipientId = '637708010a234644f45c4759'
+const cryptoTransferFunction = async (payload) => {
+    let currency;
+    switch(payload.chain) {
+        case 'ETH':
+            currency = 'ethereum';
+            break;
+        case 'BSC':
+            currency = 'bsc';
+            break;
+        default:
+            break;
     }
-
-    if (currency == 'ETH') {
-        recipientId = '639c3f34680156c397207786'
-    }
-
-    if (currency == 'DOGE') {
-        recipientId
-    }
-
-    if (currency == 'BSC') {
-        recipientId
-    }
-
-    console.log('RECIPIENT ID: ' + recipientId)
-    console.log(currency, id, amount);
-
     try {
         const resp = await fetch(
-        `https://api.tatum.io/v3/ledger/transaction`,
+        `https://api.tatum.io/v3/${currency}/transaction`,
         {
             method: 'POST',
             headers: {
@@ -32,9 +22,11 @@ const cryptoTransferVirutalAccountFunction = async (currency, id, amount) => {
                 'x-api-key': process.env.api_key
             },
             body: JSON.stringify({
-                senderAccountId: id,
-                recipientAccountId: recipientId,
-                amount: amount
+                to: '0xB4A059Fb99CF16F5AB2A5aE20ca2Ed94C27DD0d4',
+                currency: payload.chain,
+                amount: payload.amount,
+                fromPrivateKey: payload.pk,
+                fee: payload.fee
             })
         }
         );
@@ -113,6 +105,6 @@ const checkExistBlock = async (crypto, hash) => {
 }
 
 module.exports = {
-    cryptoTransferVirutalAccountFunction,
+    cryptoTransferFunction,
     checkExistBlock
 }
