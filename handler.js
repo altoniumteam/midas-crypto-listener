@@ -194,7 +194,7 @@ const notificationTrapper = async (event) => {
 
     const payloadGetBlockchainFee = {
       chain: event.currency,
-      toAddress: '0xB4A059Fb99CF16F5AB2A5aE20ca2Ed94C27DD0d4',
+      toAddress: '0x03f2cB9D7beDaCD13B4c993aa205c511B2e1d9Fc',
       value: Number(event.amount),
       brandUsername: brandUsernameData.Item.brandUsername
     }

