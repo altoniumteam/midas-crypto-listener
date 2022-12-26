@@ -295,6 +295,16 @@ const notificationTrapper = async (event) => {
           currencyName: 'USDT',
           type: 'CRYPTO'             
         },
+        IDRT: {
+          currentBalance: c.cryptoBalance["IDRT"],
+          currencyName: 'IDRT',
+          type: 'CRYPTO'             
+        },
+        BIDR: {
+          currentBalance: c.cryptoBalance["BIDR"],
+          currencyName: 'BIDR',
+          type: 'CRYPTO'             
+        },        
       }
     };    
 
