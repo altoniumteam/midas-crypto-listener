@@ -327,7 +327,7 @@ const notificationTrapper = async (event) => {
 
     console.log('SQS: ' + JSON.stringify(sqsMessage));
 
-    console.log('PAYLOAD UPDATE BALANCE: ' + JSON.stringify(payloadUpdateBalance));
+    console.log('Payload Update Balance: ' + JSON.stringify(payloadUpdateBalance));
 
     const updateBalanceInvoke = await invoke('midasWalletService2-dev-updateBalance', payloadUpdateBalance);
 
