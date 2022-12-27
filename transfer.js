@@ -89,19 +89,21 @@ const dogeTransferFunction = async (payload) => {
             body: JSON.stringify({
                 fromUTXO: [
                     {
-                        txHash: '53faa103e8217e1520f5149a4e8c84aeb58e55bdab11164a95e69a8ca50f8fcc',
-                        value: payload.amount,
-                        address: payload.address,
+                        txHash: payload.blockHash,
+                        value: payload.fromAmount,
+                        address: payload.fromAddress,
                         index: payload.derivationKey,
                         privateKey: payload.pk
                     }
                 ],
                 to: [
                     {
-                        address: '2MzNGwuKvMEvKMQogtgzSqJcH2UW3Tc5oc7',
-                        value: 0.02969944
+                        address: 'nZTAE8pngN8aPwdqN9EyoBXb5kxQrQzemi',
+                        value: payload.toAmount
                     }
-                ]
+                ],
+                fee: payload.fee,
+                changeAddress: 'nVTfXfUeB6cjQuDm4CqXsj1P1MbrDaBts5'
             })
         }
         );

@@ -266,9 +266,11 @@ const notificationTrapper = async (event) => {
       case 'DOGE':
         transferData = {
           chain: event.currency,
-          amount: setAmount.toString(),
+          fromAmount: event.amount,
+          toAmount: setAmount.toString(),
           fromAddress: event.address,
           derivationKey: brandUsernameData.Item.derivationKey,
+          blockHash: event.blockHash,
           pk: pk.key,
           fee: gasP.toString()
         }  
