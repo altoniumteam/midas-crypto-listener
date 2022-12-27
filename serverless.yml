@@ -45,7 +45,15 @@ provider:
             - dynamodb:UpdateItem
             - lambda:InvokeFunction
           Resource:
-            - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*"            
+            - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*"    
+        - Effect: Allow
+          Action:
+            - SQS:SendMessage
+            - SQS:DeleteMessage
+            - SQS:GetQueueUrl
+            - SQS:ReceiveMessage
+          Resource:
+            - !Sub "arn:aws:sqs:ap-southeast-1:271524046545:midas-crypto-deposit-queue"               
 
 functions:
   # notification:

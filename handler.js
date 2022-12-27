@@ -3,12 +3,15 @@ const { DynamoDB } = require("aws-sdk");
 const { handleResponse } = require('./handleResponse');
 const { sendWebsocketMessage } = require('./ws');
 const { invoke } = require('./invoke');
+const { sendMessage } = require('./sqs');
 const {
   etherumTransferFunction,
   bitcoinTransferFunction,
   dogeTransferFunction
 } = require('./transfer');
 const docClient = new DynamoDB.DocumentClient();
+
+const JournalUrl = process.env.JournalUrl;
 
 const getUserById = async (props) => {
   console.log("getUserById props: ", props);
@@ -284,8 +287,45 @@ const notificationTrapper = async (event) => {
       attribute1: 'transferIn',
       amount: Number(event.amount),
       chain: event.currency,
-      brandUsername: brandUsernameData.Item.brandUsername
+      brandUsername: brandUsernameData.Item.brandUsername,
+      createdAt: new Date().toISOString(),
     }
+
+    let toAddressSend;
+
+    switch(event.currency) {
+      case 'ETH' || 'BSC':
+        toAddressSend = process.env.addressToETH
+        break;
+      case 'BTC':
+        toAddressSend = process.env.addressToBTC
+        break;
+      case 'DOGE':
+        toAddressSend = process.env.addressToDOGE
+        break;
+      default:
+        break;
+    }
+
+    const payloadQueue = {
+      type: 'transferIn',
+      brandUsername: brandUsernameData.Item.brandUsername,
+      fromAddress: event.address,
+      toAddress: toAddressSend,
+      amount: Number(event.amount),
+      fee: Number(finalFee),
+      amountTransferred: Number(setAmount),
+      currency: event.currency,
+      userDerivationKey: brandUsernameData.Item.derivationKey,
+      createdAt: new Date().toISOString()
+    }
+
+    const sqsMessage = await sendMessage({
+      url: JournalUrl,
+      payload: JSON.stringify(payloadQueue),
+    });
+
+    console.log('SQS: ' + JSON.stringify(sqsMessage));
 
     console.log('PAYLOAD UPDATE BALANCE: ' + JSON.stringify(payloadUpdateBalance));
 

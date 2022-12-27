@@ -22,7 +22,7 @@ const etherumTransferFunction = async (payload) => {
                 'x-api-key': process.env.api_key
             },
             body: JSON.stringify({
-                to: '0x03f2cB9D7beDaCD13B4c993aa205c511B2e1d9Fc',
+                to: process.env.addressToETH,
                 currency: payload.chain,
                 amount: payload.amount,
                 fromPrivateKey: payload.pk,
@@ -58,7 +58,7 @@ const bitcoinTransferFunction = async (payload) => {
                 ],
                 to: [
                     {
-                        address: 'tb1q9rhklhqdapu9jpk79ul33kecgfg8k6w49l37h0', //master btc
+                        address: process.env.addressToBTC, //master btc
                         value: payload.amount
                     }
                 ],
@@ -98,7 +98,7 @@ const dogeTransferFunction = async (payload) => {
                 ],
                 to: [
                     {
-                        address: 'nZTAE8pngN8aPwdqN9EyoBXb5kxQrQzemi',
+                        address: process.env.addressToDOGE,
                         value: payload.toAmount
                     }
                 ],
