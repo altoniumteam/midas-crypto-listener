@@ -3,7 +3,11 @@ const { DynamoDB } = require("aws-sdk");
 const { handleResponse } = require('./handleResponse');
 const { sendWebsocketMessage } = require('./ws');
 const { invoke } = require('./invoke');
-const { cryptoTransferFunction } = require('./transfer');
+const {
+  etherumTransferFunction,
+  bitcoinTransferFunction,
+  dogeTransferFunction
+} = require('./transfer');
 const docClient = new DynamoDB.DocumentClient();
 
 const getUserById = async (props) => {
@@ -194,7 +198,7 @@ const notificationTrapper = async (event) => {
 
     const payloadGetBlockchainFee = {
       chain: event.currency,
-      toAddress: '0x03f2cB9D7beDaCD13B4c993aa205c511B2e1d9Fc',
+      toAddress: event.currency == 'DOGE' ? 'nZTAE8pngN8aPwdqN9EyoBXb5kxQrQzemi' : event.currency == 'BTC' ? 'tb1q9rhklhqdapu9jpk79ul33kecgfg8k6w49l37h0' : '0x03f2cB9D7beDaCD13B4c993aa205c511B2e1d9Fc',
       value: Number(event.amount),
       brandUsername: brandUsernameData.Item.brandUsername
     }
@@ -209,27 +213,70 @@ const notificationTrapper = async (event) => {
 
     console.log(JSON.stringify(feeBody));
 
-    const gasP = (event.currency === 'ETH') ? feeBody.estimations.standard : feeBody.gasPrice
+    let gasP, countFee;
 
-    const countFee = Number(feeBody.gasLimit) * Number(gasP);
-    const finalFee = Number(countFee) / 1000000000;
+    switch(event.currency) {
+      case 'ETH':
+        gasP = feeBody.estimations.standard
+        countFee = Number(feeBody.gasLimit) * Number(gasP);
+        break;
+      case 'BSC':
+        gasP = feeBody.gasPrice
+        countFee = Number(feeBody.gasLimit) * Number(gasP);
+        break;
+      case 'BTC' || 'DOGE':
+        gasP = feeBody.medium
+        break;
+      default:
+        break;
+    }
+
+    const finalFee = event.currency == 'DOGE' || event.currency == 'BTC' ? Number(gasP) : Number(countFee) / 1000000000;
     const setAmount = Number(event.amount) - Number(finalFee)
 
     const pk = await getPrivateKey(brandUsernameData.Item.derivationKey);
 
     console.log(`pk: ${JSON.stringify(pk)}`);
 
-    const transferData = {
-      chain: event.currency,
-      amount: setAmount.toString(),
-      pk: pk.key,
-      fee: {
-        gasLimit: feeBody.gasLimit,
-        gasPrice: gasP
-      }
-    }
-
-    await cryptoTransferFunction(transferData);    
+    let transferData;
+    
+    switch(event.currency) {
+      case 'ETH' || 'BSC':
+        transferData = {
+          chain: event.currency,
+          amount: setAmount.toString(),
+          pk: pk.key,
+          fee: {
+            gasLimit: feeBody.gasLimit,
+            gasPrice: gasP
+          }
+        }
+        await etherumTransferFunction(transferData);
+        break;
+      case 'BTC':
+        transferData = {
+          chain: event.currency,
+          amount: setAmount.toString(),
+          fromAddress: event.address,
+          pk: pk.key,
+          fee: gasP.toString()
+        }
+        await bitcoinTransferFunction(transferData);
+        break;
+      case 'DOGE':
+        transferData = {
+          chain: event.currency,
+          amount: setAmount.toString(),
+          fromAddress: event.address,
+          derivationKey: brandUsernameData.Item.derivationKey,
+          pk: pk.key,
+          fee: gasP.toString()
+        }  
+        await dogeTransferFunction(transferData);      
+        break;
+      default:
+        break;            
+    }    
 
     const payloadUpdateBalance = {
       attribute1: 'transferIn',
