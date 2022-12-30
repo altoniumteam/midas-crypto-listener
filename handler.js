@@ -359,7 +359,7 @@ const notificationTrapper = async (event) => {
     console.log(error);
     handleResponse(null, 500, error);    
   }  
-};
+}
 
 module.exports = {
   notificationTrapper
