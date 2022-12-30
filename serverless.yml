@@ -16,7 +16,9 @@ provider:
   stage: dev
   environment:
     api_key: ${self:custom.tatumSecret.tatumApiKey}
-    MNEMONIC: ${self:custom.tatumSecret.mnemonicETH}
+    MNEMONIC_ETH: ${self:custom.tatumSecret.mnemonicETH}
+    MNEMONIC_BTC: ${self:custom.tatumSecret.mnemonicBTC}
+    MNEMONIC_DOGE: ${self:custom.tatumSecret.mnemonicDOGE}
   iam:
     role:
       statements:
@@ -52,8 +54,8 @@ provider:
             - SQS:DeleteMessage
             - SQS:GetQueueUrl
             - SQS:ReceiveMessage
-          Resource:
-            - !Sub "arn:aws:sqs:ap-southeast-1:271524046545:midas-crypto-deposit-queue"               
+          Resource:      
+            - !Sub "arn:aws:sqs:ap-southeast-1:271524046545:crypto-manager-queue"          
 
 functions:
   # notification:

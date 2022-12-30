@@ -4,14 +4,9 @@ const { handleResponse } = require('./handleResponse');
 const { sendWebsocketMessage } = require('./ws');
 const { invoke } = require('./invoke');
 const { sendMessage } = require('./sqs');
-const {
-  etherumTransferFunction,
-  bitcoinTransferFunction,
-  dogeTransferFunction
-} = require('./transfer');
 const docClient = new DynamoDB.DocumentClient();
 
-const JournalUrl = process.env.JournalUrl;
+const CryptoManagerUrl = process.env.CryptoManagerUrl;
 
 const getUserById = async (props) => {
   console.log("getUserById props: ", props);
@@ -92,9 +87,47 @@ const updateCryptoBalance = async (brandUsername, currency, amount) => {
 };
 
 const getPrivateKey = async (index) => {
+  const { indexNumber, currency } = index;
+  let chain, mnemonic;
+  switch (currency) {
+    case 'ETH':
+      chain = 'ethereum'
+      mnemonic = process.env.MNEMONIC_ETH
+      break;
+    case 'BSC':
+      chain = 'bsc'
+      mnemonic = process.env.MNEMONIC_ETH
+      break;
+    case 'BTC':
+      chain = 'bitcoin'
+      mnemonic = process.env.MNEMONIC_BTC
+      break;
+    case 'DOGE':
+      chain = 'dogecoin'
+      mnemonic = process.env.MNEMONIC_DOGE
+      break;
+    case 'USDT':
+      chain = 'ethereum'
+      mnemonic = process.env.MNEMONIC_ETH
+      break;
+    case 'SHIB':
+      chain = 'ethereum'
+      mnemonic = process.env.MNEMONIC_ETH
+      break;
+    case 'IDRT':
+      chain = 'ethereum'
+      mnemonic = process.env.MNEMONIC_ETH
+      break;
+    case 'BIDR':
+      chain = 'bsc'
+      mnemonic = process.env.MNEMONIC_ETH      
+      break;
+    default:
+      break;
+  }
   try {
     const success = await fetch(
-      `https://api.tatum.io/v3/ethereum/wallet/priv`,
+      `https://api.tatum.io/v3/${chain}/wallet/priv`,
       {
         method: 'POST',
         headers: {
@@ -102,8 +135,8 @@ const getPrivateKey = async (index) => {
           'x-api-key': process.env.api_key
         },
         body: JSON.stringify({
-            index: Number(index),
-            mnemonic: process.env.MNEMONIC
+            index: Number(indexNumber),
+            mnemonic: mnemonic
         })
       }
     );
@@ -172,6 +205,23 @@ const getPrivateKey = async (index) => {
 const notificationTrapper = async (event) => {
   console.log(event);
   // get ws connection //
+  switch(event.currency) {
+    case 'USDTF':
+      event.currency = 'USDT'
+      break;
+    case 'SHIBAF':
+      event.currency = 'SHIB'
+      break;
+    case 'BIDR':
+      event.currency = 'BIDR'
+      break;
+    case 'IDRT':
+      event.currency = 'IDRT'
+      break;
+    default:
+      break;  
+  }
+
   const params = {
     TableName: 'midasUserBlockchainAddress',
     Key: {
@@ -196,92 +246,33 @@ const notificationTrapper = async (event) => {
     const { Item } = await docClient.get(paramsWebSocket).promise();
 
     console.log({
-      a: event.currency, b: event.accountId, c: event.amount
+      a: event.currency, b: event.address, c: event.amount
     })
 
-    const payloadGetBlockchainFee = {
-      chain: event.currency,
-      toAddress: event.currency == 'DOGE' ? 'nZTAE8pngN8aPwdqN9EyoBXb5kxQrQzemi' : event.currency == 'BTC' ? 'tb1q9rhklhqdapu9jpk79ul33kecgfg8k6w49l37h0' : '0x03f2cB9D7beDaCD13B4c993aa205c511B2e1d9Fc',
-      value: Number(event.amount),
-      brandUsername: brandUsernameData.Item.brandUsername
+    const pkData = {
+      indexNumber: brandUsernameData.Item.derivationKey,
+      currency: event.currency
     }
-
-    console.log('PAYLOAD BLOCKCHAIN FEE: ' + JSON.stringify(payloadGetBlockchainFee));
-
-    const blockchainFeeInvoke = await invoke('midas-player-backend-dev-getBlockchainFees', payloadGetBlockchainFee)
-
-    const feeParse = JSON.parse(blockchainFeeInvoke.Payload);
-
-    const feeBody = JSON.parse(feeParse.body)
-
-    console.log(JSON.stringify(feeBody));
-
-    let gasP, countFee;
-
-    switch(event.currency) {
-      case 'ETH':
-        gasP = feeBody.estimations.standard
-        countFee = Number(feeBody.gasLimit) * Number(gasP);
-        break;
-      case 'BSC':
-        gasP = feeBody.gasPrice
-        countFee = Number(feeBody.gasLimit) * Number(gasP);
-        break;
-      case 'BTC' || 'DOGE':
-        gasP = feeBody.medium
-        break;
-      default:
-        break;
-    }
-
-    const finalFee = event.currency == 'DOGE' || event.currency == 'BTC' ? Number(gasP) : Number(countFee) / 1000000000;
-    const setAmount = Number(event.amount) - Number(finalFee)
-
-    const pk = await getPrivateKey(brandUsernameData.Item.derivationKey);
+    const pk = await getPrivateKey(pkData);
 
     console.log(`pk: ${JSON.stringify(pk)}`);
-
-    let transferData;
     
-    switch(event.currency) {
-      case 'ETH' || 'BSC':
-        transferData = {
-          chain: event.currency,
-          amount: setAmount.toString(),
-          pk: pk.key,
-          fee: {
-            gasLimit: feeBody.gasLimit,
-            gasPrice: gasP
-          }
-        }
-        await etherumTransferFunction(transferData);
-        break;
-      case 'BTC':
-        transferData = {
-          chain: event.currency,
-          amount: setAmount.toString(),
-          fromAddress: event.address,
-          pk: pk.key,
-          fee: gasP.toString()
-        }
-        await bitcoinTransferFunction(transferData);
-        break;
-      case 'DOGE':
-        transferData = {
-          chain: event.currency,
-          fromAmount: event.amount,
-          toAmount: setAmount.toString(),
-          fromAddress: event.address,
-          derivationKey: brandUsernameData.Item.derivationKey,
-          blockHash: event.blockHash,
-          pk: pk.key,
-          fee: gasP.toString()
-        }  
-        await dogeTransferFunction(transferData);      
-        break;
-      default:
-        break;            
-    }    
+    const cryptoManagerData = {
+      currency: event.currency, 
+      amount: event.amount,
+      brandUsername: brandUsernameData.Item.brandUsername,
+      address: event.address, 
+      derivationKey: brandUsernameData.Item.derivationKey, 
+      blockHash: event.blockHash,
+      pk: pk.key
+    }
+
+    const sqsCryptoManager = await sendMessage({
+      url: CryptoManagerUrl,
+      payload: JSON.stringify(cryptoManagerData),      
+    })
+
+    console.log('crypto manager: ' + JSON.stringify(sqsCryptoManager));
 
     const payloadUpdateBalance = {
       attribute1: 'transferIn',
@@ -290,42 +281,6 @@ const notificationTrapper = async (event) => {
       brandUsername: brandUsernameData.Item.brandUsername,
       createdAt: new Date().toISOString(),
     }
-
-    let toAddressSend;
-
-    switch(event.currency) {
-      case 'ETH' || 'BSC':
-        toAddressSend = process.env.addressToETH
-        break;
-      case 'BTC':
-        toAddressSend = process.env.addressToBTC
-        break;
-      case 'DOGE':
-        toAddressSend = process.env.addressToDOGE
-        break;
-      default:
-        break;
-    }
-
-    const payloadQueue = {
-      type: 'transferIn',
-      brandUsername: brandUsernameData.Item.brandUsername,
-      fromAddress: event.address,
-      toAddress: toAddressSend,
-      amount: Number(event.amount),
-      fee: Number(finalFee),
-      amountTransferred: Number(setAmount),
-      currency: event.currency,
-      userDerivationKey: brandUsernameData.Item.derivationKey,
-      createdAt: new Date().toISOString()
-    }
-
-    const sqsMessage = await sendMessage({
-      url: JournalUrl,
-      payload: JSON.stringify(payloadQueue),
-    });
-
-    console.log('SQS: ' + JSON.stringify(sqsMessage));
 
     console.log('Payload Update Balance: ' + JSON.stringify(payloadUpdateBalance));
 
